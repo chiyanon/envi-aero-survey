@@ -695,7 +695,7 @@
     document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 500);
   }
   const safeName = () => (S.name || 'mission').replace(/[^\w\-]+/g, '_').slice(0, 60);
-  $('btnSave').onclick = () => { const o = Object.assign({}, S); delete o.view; download(safeName() + '.enviaerosurvey.json', JSON.stringify({ app: 'EnviAeroSurvey', org: 'Mahidol University', version: 1, state: o }, null, 1), 'application/json'); };
+  $('btnSave').onclick = () => { const o = Object.assign({}, S); delete o.view; download(safeName() + '.envi-aero-survey.json', JSON.stringify({ app: 'EnviAeroSurvey', org: 'Mahidol University', version: 1, state: o }, null, 1), 'application/json'); };
   let importOnly = false;
   $('btnOpen').onclick = () => { importOnly = false; $('fileOpen').click(); };
   $('btnImport').onclick = () => { importOnly = true; $('fileOpen').click(); };

@@ -2,6 +2,10 @@
 
 Terrain-aware UAV photogrammetry flight planner, for research and education at Mahidol University.
 
+- **Live app:** <https://chiyanon.github.io/envi-aero-survey/>
+- **Source:** <https://github.com/chiyanon/envi-aero-survey>
+- **Developer guide:** [docs/DEVELOPER_GUIDE.md](docs/DEVELOPER_GUIDE.md) covers architecture, algorithms, data contracts, testing, how to extend, known limitations and the roadmap.
+
 A browser-based mission planner for professional drone mapping. There is no build step and no API keys. You draw an area, pick a drone and camera, and pick a scene type. The app then shows the flight lines, GSD, overlap and flight time against a real terrain model, and it exports a mission file you can fly.
 
 ## Run
@@ -16,6 +20,7 @@ Engine tests (Node ≥ 18):
 
 ```bash
 node tests/planner.test.js
+node --no-warnings tests/guard.test.js
 ```
 
 ## Cost and fair-use guardrails
@@ -40,7 +45,7 @@ Commercial use would need paid plans from the providers: Esri, a commercial tile
 
 1. Push the folder to a **public** GitHub repository. Pages on private repositories needs a paid plan.
 2. Go to **Settings → Pages → Deploy from a branch → `main` / root**.
-3. The site appears at `https://<user>.github.io/<repo>/`. The empty `.nojekyll` file makes Pages serve the files as they are, so no build or Actions minutes are used.
+3. The site appears at `https://<user>.github.io/<repo>/`. This project is published at <https://chiyanon.github.io/envi-aero-survey/>. The empty `.nojekyll` file makes Pages serve the files as they are, so no build or Actions minutes are used.
 
 ## What it covers
 
@@ -89,4 +94,6 @@ js/exporters.js       KML / KMZ-WPML / Litchi / CSV / GeoJSON
 js/help.js            built-in user guide (topics + controller)
 js/app.js             map, drawing, rendering, files, report
 tests/planner.test.js engine tests
+tests/guard.test.js   guardrail tests
+docs/DEVELOPER_GUIDE.md  developer guide
 ```
