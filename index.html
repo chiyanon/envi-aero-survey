@@ -1,0 +1,255 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>EnviAeroSurvey: Mahidol University</title>
+  <meta name="description" content="EnviAeroSurvey: Mahidol University — terrain-aware UAV photogrammetry flight planning for professional drones and mapping payloads.">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%230e1726'/%3E%3Cpath d='M7 9h18M7 16h18M7 23h18' stroke='%2338bdf8' stroke-width='2.4' stroke-linecap='round'/%3E%3Ccircle cx='25' cy='9' r='2.6' fill='%23fbbf24'/%3E%3C/svg%3E">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+  <link rel="stylesheet" href="css/app.css">
+  <script>try { if ((localStorage.getItem('enviaerosurvey.theme') || localStorage.getItem('aerogrid.theme')) === 'dark') document.documentElement.dataset.theme = 'dark'; } catch (e) {}</script>
+</head>
+<body>
+<header class="topbar">
+  <div class="brand"><svg viewBox="0 0 32 32" width="26" height="26" aria-hidden="true"><rect width="32" height="32" rx="7" fill="#0e1726"/><path d="M7 9h18M7 16h18M7 23h18" stroke="#38bdf8" stroke-width="2.4" stroke-linecap="round"/><circle cx="25" cy="9" r="2.6" fill="#fbbf24"/></svg>
+    <span>EnviAeroSurvey</span><small>Mahidol University</small></div>
+  <input id="projName" class="proj-name" value="Untitled survey" aria-label="Project name">
+  <div class="search">
+    <input id="searchBox" placeholder="Search place or enter lat, lon…" aria-label="Search location">
+    <div id="searchResults" class="search-results" hidden></div>
+  </div>
+  <div class="top-actions">
+    <button class="btn ghost" id="btnNew" title="New project">New</button>
+    <button class="btn ghost" id="btnOpen" title="Open project (.json)">Open</button>
+    <button class="btn ghost" id="btnSave" title="Save project (.json)">Save</button>
+    <button class="btn" id="btnReport" title="Printable mission report">Report</button>
+    <button class="btn icon-btn" id="btnHelp" title="Help &amp; user guide (?)" aria-label="Help"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9.5"/><path d="M9.3 9.2a2.8 2.8 0 0 1 5.4 1c0 1.9-2.7 2.5-2.7 4.1"/><circle cx="12" cy="17.6" r=".6" fill="currentColor"/></svg></button>
+    <button class="btn icon-btn" id="btnTheme" title="Switch light / dark theme" aria-label="Switch theme"></button>
+    <input type="file" id="fileOpen" accept=".json,.kml,.geojson,.json" hidden>
+  </div>
+</header>
+
+<main class="layout">
+  <!-- ======================= LEFT: configuration ======================= -->
+  <aside class="panel" id="panel">
+    <section class="card" data-step="1">
+      <h2><span class="num">1</span>Survey area <button class="hq" data-help="area" title="How to draw and edit the area">?</button></h2>
+      <div class="seg" id="missionSeg" role="tablist">
+        <button data-v="area" class="on" title="Single grid — orthomosaic & DSM">Area grid</button>
+        <button data-v="double" title="Crosshatch — 3D models, urban, stockpiles">Double grid</button>
+        <button data-v="corridor" title="Linear assets — roads, rail, pipelines, power lines">Corridor</button>
+      </div>
+      <div class="row gap">
+        <button class="btn primary grow" id="btnDraw">✎ Draw area</button>
+        <button class="btn" id="btnImport" title="Import KML / GeoJSON boundary">Import</button>
+        <button class="btn" id="btnClear" title="Clear geometry">Clear</button>
+      </div>
+      <p class="hint" id="drawHint">Click on the map to place corners. Click the first point (or press Enter) to finish. Drag vertices to edit, right-click to delete.</p>
+      <div class="field" id="corrWidthField" hidden>
+        <label>Corridor width <b id="corrWidthVal">60 m</b></label>
+        <input type="range" id="corrWidth" min="10" max="500" step="5" value="60">
+      </div>
+      <div class="row gap">
+        <button class="btn sm" id="btnHome" title="Click map to set take-off point">⌖ Set take-off point</button>
+        <span class="hint inline" id="homeInfo">—</span>
+      </div>
+    </section>
+
+    <section class="card" data-step="2">
+      <h2><span class="num">2</span>Aircraft &amp; sensor <button class="hq" data-help="platform" title="Choosing aircraft and camera">?</button></h2>
+      <div class="field"><label for="platform">Platform</label><select id="platform"></select></div>
+      <div class="field"><label for="camera">Payload / camera</label><select id="camera"></select></div>
+      <div class="spec" id="camSpec"></div>
+      <div id="customCam" class="grid2" hidden>
+        <div class="field"><label>Sensor W (mm)</label><input type="number" step="0.01" data-cc="sw"></div>
+        <div class="field"><label>Sensor H (mm)</label><input type="number" step="0.01" data-cc="sh"></div>
+        <div class="field"><label>Image W (px)</label><input type="number" step="1" data-cc="iw"></div>
+        <div class="field"><label>Image H (px)</label><input type="number" step="1" data-cc="ih"></div>
+        <div class="field"><label>Focal (mm)</label><input type="number" step="0.01" data-cc="f"></div>
+        <div class="field"><label>Min interval (s)</label><input type="number" step="0.1" data-cc="minInt"></div>
+      </div>
+      <div id="customPlat" class="grid2" hidden>
+        <div class="field"><label>Max speed (m/s)</label><input type="number" step="0.5" data-cp="speed"></div>
+        <div class="field"><label>Endurance (min)</label><input type="number" step="1" data-cp="endurance"></div>
+        <div class="field"><label>Wind limit (m/s)</label><input type="number" step="0.5" data-cp="wind"></div>
+        <div class="field"><label>Ceiling (m ASL)</label><input type="number" step="100" data-cp="ceiling"></div>
+      </div>
+    </section>
+
+    <section class="card" data-step="3">
+      <h2><span class="num">3</span>Terrain &amp; environment <button class="hq" data-help="scene" title="Scene types and terrain">?</button></h2>
+      <div class="field"><label for="terrain">Scene type</label><select id="terrain"></select></div>
+      <ul class="tips" id="terrainTips"></ul>
+      <div class="field">
+        <label>Altitude mode <button class="hq" data-help="altitude" title="Terrain-follow vs fixed altitude">?</button></label>
+        <div class="seg" id="altSeg">
+          <button data-v="follow" class="on" title="Constant height above ground using the terrain model">Terrain-follow</button>
+          <button data-v="fixed" title="Constant altitude — GSD and overlap vary with terrain">Fixed altitude</button>
+        </div>
+      </div>
+      <div class="grid2" id="fixedOpts" hidden>
+        <div class="field"><label for="fixedRef">Height measured from</label>
+          <select id="fixedRef"><option value="takeoff">Take-off point</option><option value="lowest">Lowest ground</option><option value="mean">Mean ground</option><option value="highest">Highest ground</option></select></div>
+        <label class="check"><input type="checkbox" id="protectOverlap" checked> Protect overlap on high ground</label>
+      </div>
+      <div class="grid2">
+        <div class="field"><label for="obstacle">Obstacle / canopy height (m) <button class="hq" data-help="obstacles" title="Obstacles and DEM uncertainty">?</button></label><input type="number" id="obstacle" min="0" step="1"></div>
+        <div class="field"><label for="demUnc">DEM uncertainty ± (m)</label><input type="number" id="demUnc" min="0" step="1" value="10"></div>
+      </div>
+      <div class="dem" id="demStatus">Terrain model: not loaded</div>
+      <hr>
+      <div class="grid3">
+        <div class="field"><label for="date">Date <button class="hq" data-help="weather" title="Weather, wind and sunlight">?</button></label><input type="date" id="date"></div>
+        <div class="field"><label for="time">Local time</label><input type="time" id="time" step="900"></div>
+        <div class="field"><label for="utc">UTC offset</label><input type="number" id="utc" step="0.5" min="-12" max="14"></div>
+      </div>
+      <div class="grid3">
+        <div class="field"><label for="windSpd">Wind @10 m (m/s)</label><input type="number" id="windSpd" min="0" step="0.5"></div>
+        <div class="field"><label for="windGust">Gust (m/s)</label><input type="number" id="windGust" min="0" step="0.5"></div>
+        <div class="field"><label for="windDir">From (°)</label><input type="number" id="windDir" min="0" max="359" step="5"></div>
+      </div>
+      <div class="grid3">
+        <div class="field"><label for="temp">Temp (°C)</label><input type="number" id="temp" step="1"></div>
+        <div class="field span2"><label>&nbsp;</label><button class="btn sm" id="btnWeather" title="Fetch hourly forecast from Open-Meteo for the site">☁ Fetch site forecast</button></div>
+      </div>
+      <div class="sun" id="sunInfo"></div>
+    </section>
+
+    <section class="card" data-step="4">
+      <h2><span class="num">4</span>Imaging parameters <button class="hq" data-help="gsd" title="GSD, altitude and image quality">?</button></h2>
+      <div class="grid2">
+        <div class="field"><label for="gsd">Target GSD (cm/px)</label><input type="number" id="gsd" min="0.1" step="0.05"></div>
+        <div class="field"><label for="agl">Height AGL (m)</label><input type="number" id="agl" min="5" step="1"></div>
+      </div>
+      <input type="range" id="aglRange" min="20" max="500" step="1" aria-label="Height above ground">
+      <div class="field">
+        <label for="frontNum">Front overlap (%) <button class="hq" data-help="overlap" title="What is overlap?">?</button></label>
+        <div class="slider-num"><input type="range" id="front" min="50" max="95" step="1" aria-label="Front overlap slider"><input type="number" id="frontNum" min="50" max="95" step="1" aria-label="Front overlap percent"></div>
+      </div>
+      <div class="field">
+        <label for="sideNum">Side overlap (%)</label>
+        <div class="slider-num"><input type="range" id="side" min="30" max="90" step="1" aria-label="Side overlap slider"><input type="number" id="sideNum" min="30" max="90" step="1" aria-label="Side overlap percent"></div>
+      </div>
+      <button class="link" id="btnRecOverlap">↺ Use recommended overlap for scene</button>
+      <div class="field" id="angleField">
+        <label for="angleNum"><span title="Bearing of the flight lines, degrees clockwise from north">Flight direction (°)</span> <span class="lbl-right"><b id="angleVal"></b><button class="hq" data-help="direction" title="About flight direction">?</button></span></label>
+        <div class="slider-num"><input type="range" id="angle" min="0" max="359" step="1" aria-label="Flight direction slider"><input type="number" id="angleNum" min="0" max="359" step="0.5" aria-label="Flight direction degrees">
+          <label class="check sm"><input type="checkbox" id="autoAngle" checked> Auto</label></div>
+        <button class="link" id="btnCrosswind">⤳ Align flight lines crosswind</button>
+      </div>
+      <div class="grid3">
+        <div class="field"><label for="shutter">Shutter <button class="hq" data-help="shutter" title="Shutter, blur and speed">?</button></label><select id="shutter"></select></div>
+        <div class="field"><label for="maxBlur">Max blur (px)</label><input type="number" id="maxBlur" min="0.1" max="3" step="0.1"></div>
+        <div class="field"><label for="speed">Speed (m/s)</label><input type="number" id="speed" min="0" step="0.5" placeholder="auto"></div>
+      </div>
+    </section>
+
+    <details class="card adv" data-step="5">
+      <summary><h2><span class="num">5</span>Advanced &amp; safety</h2></summary>
+      <div class="grid2">
+        <div class="field"><label for="margin">Boundary margin (m)</label><input type="number" id="margin" min="0" step="5"></div>
+        <div class="field"><label for="lineExt">Line run-in/out (m)</label><input type="number" id="lineExt" min="0" step="5" placeholder="auto"></div>
+        <div class="field"><label for="maxGrade">Max climb grade (%)</label><input type="number" id="maxGrade" min="5" max="100" step="5" placeholder="auto"></div>
+        <div class="field"><label for="followTol">Follow tolerance (m)</label><input type="number" id="followTol" min="0.5" step="0.5"></div>
+        <div class="field"><label for="reserve">Battery reserve (%)</label><input type="number" id="reserve" min="0" max="60" step="5"></div>
+        <div class="field"><label for="takeoffSafe">Take-off safe height (m)</label><input type="number" id="takeoffSafe" min="10" step="5"></div>
+        <div class="field"><label for="legalAGL">Regulatory max AGL (m)</label><input type="number" id="legalAGL" min="10" step="10"></div>
+        <div class="field"><label for="maxRel">Aircraft max above take-off (m)</label><input type="number" id="maxRel" min="50" step="50"></div>
+        <div class="field"><label for="vlos">VLOS radius (m)</label><input type="number" id="vlos" min="100" step="50"></div>
+        <div class="field"><label for="orient">Sensor orientation</label><select id="orient"><option value="across">Long side across track</option><option value="along">Long side along track</option></select></div>
+      </div>
+      <button class="link" data-help="advanced">ⓘ What do these settings do?</button>
+      <div class="field"><label for="georef">Georeferencing <button class="hq" data-help="accuracy" title="Accuracy and ground control">?</button></label><select id="georef"></select></div>
+    </details>
+    <p class="foot">EnviAeroSurvey · Mahidol University — for research and education. Specs are manufacturer nominal values; terrain from AWS Terrain Tiles (SRTM/NED/EU-DEM). Free public data services are used with built-in fair-use limits (<button class="link" data-help="fairuse">details</button>). Always verify the mission in the flight app's simulator before flying, and comply with local regulations.</p>
+  </aside>
+
+  <!-- ======================= CENTER: map ======================= -->
+  <section class="mapwrap">
+    <div id="map"></div>
+    <div class="map-tools">
+      <div class="seg small" id="baseSeg">
+        <button data-v="sat" class="on">Satellite</button><button data-v="topo">Topo</button><button data-v="street">Streets</button>
+      </div>
+      <label class="check pill"><input type="checkbox" id="hillshade"> Hillshade</label>
+      <label class="check pill"><input type="checkbox" id="showPhotos" checked> Photos</label>
+      <label class="check pill"><input type="checkbox" id="showFoot"> Footprints</label>
+      <select id="colorBy" class="pill" aria-label="Colour photos by">
+        <option value="gsd">Colour: GSD</option><option value="front">Colour: front overlap</option><option value="side">Colour: side overlap</option><option value="agl">Colour: height AGL</option><option value="clearance">Colour: clearance</option>
+      </select>
+    </div>
+    <div class="legend" id="legend" hidden></div>
+    <div class="busy" id="busy" hidden><span class="spin"></span><span id="busyText">Loading terrain…</span></div>
+    <div class="empty" id="emptyState">
+      <h3>Plan a mapping mission in four steps</h3>
+      <ol><li>Search your site and <b>draw the survey area</b></li><li>Pick your <b>drone and camera</b></li><li>Choose the <b>scene type</b> — overlaps &amp; terrain-following are set for you</li><li>Set <b>GSD</b>, review warnings and <b>export</b></li></ol>
+      <div class="row gap"><button class="btn primary" id="btnDemo">Load a demo mission</button><button class="btn" data-help="quickstart">Read the quick guide</button></div>
+    </div>
+
+    <div class="profile" id="profileDrawer">
+      <div class="profile-head">
+        <strong>Terrain &amp; altitude profile</strong> <button class="hq" data-help="profile" title="Reading the profile and map colours">?</button>
+        <span class="lg"><i class="sw ground"></i>Ground <i class="sw obst"></i>Obstacles <i class="sw fly"></i>Flight path <i class="sw cap"></i>Imaging</span>
+        <span id="profileHover" class="mono"></span>
+        <button class="btn sm ghost" id="btnProfile">Hide</button>
+      </div>
+      <canvas id="profileCanvas"></canvas>
+    </div>
+  </section>
+
+  <!-- ======================= RIGHT: results ======================= -->
+  <aside class="results" id="results">
+    <div class="res-head"><h2>Mission summary</h2><button class="hq" data-help="results" title="Reading the mission summary">?</button><span class="status" id="statusBadge">No plan</span></div>
+    <div class="kpis" id="kpis"></div>
+    <div class="block">
+      <h3>Warnings &amp; checks <button class="hq" data-help="warnings" title="Understanding warnings">?</button></h3>
+      <ul class="warnings" id="warnings"><li class="info">Draw an area to start.</li></ul>
+    </div>
+    <div class="block">
+      <h3>Details</h3>
+      <table class="details" id="details"></table>
+    </div>
+    <div class="block">
+      <h3>Export <button class="hq" data-help="exports" title="Loading missions into your flight app">?</button></h3>
+      <div class="exports">
+        <button class="btn" data-exp="wpml" title="DJI Pilot 2 / FlightHub 2 waypoint mission (WPML)">DJI KMZ (WPML)</button>
+        <button class="btn" data-exp="kml" title="Google Earth: area, 3D path, photo centres">KML (Google Earth)</button>
+        <button class="btn" data-exp="litchi" title="Litchi Mission Hub CSV (≤ 99 waypoints per file)">Litchi CSV</button>
+        <button class="btn" data-exp="wpcsv" title="Waypoints with ASL / relative / AGL heights">Waypoints CSV</button>
+        <button class="btn" data-exp="photocsv" title="Planned photo centres with GSD and overlap">Photo centres CSV</button>
+        <button class="btn" data-exp="geojson" title="GIS: area, path and photo centres">GeoJSON</button>
+      </div>
+      <p class="hint">Heights in DJI/Litchi exports are relative to the take-off point; KML/CSV also carry ASL (EGM96) values. The DJI KMZ is a waypoint mission with distance-interval capture — validate it in Pilot 2 before flight.</p>
+    </div>
+  </aside>
+</main>
+
+<div class="toast" id="toast" hidden></div>
+
+<!-- ======================= Help drawer ======================= -->
+<div class="help-scrim" id="helpScrim" hidden></div>
+<aside class="help" id="help" role="dialog" aria-modal="true" aria-labelledby="helpTitle" hidden>
+  <div class="help-head">
+    <h2 id="helpTitle">EnviAeroSurvey guide</h2>
+    <input id="helpSearch" type="search" placeholder="Search help (e.g. overlap, DJI, wind)…" aria-label="Search help">
+    <button class="btn sm" id="helpClose" aria-label="Close help">Close ✕</button>
+  </div>
+  <nav class="help-nav" id="helpNav" aria-label="Help topics"></nav>
+  <article class="help-body" id="helpBody"></article>
+</aside>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="js/guard.js"></script>
+<script src="js/data.js"></script>
+<script src="js/geo.js"></script>
+<script src="js/environment.js"></script>
+<script src="js/dem.js"></script>
+<script src="js/planner.js"></script>
+<script src="js/exporters.js"></script>
+<script src="js/help.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>

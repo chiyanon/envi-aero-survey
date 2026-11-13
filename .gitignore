@@ -1,0 +1,14 @@
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# local tooling (not part of the site)
+.claude/
+node_modules/
+
+# reports or exports downloaded while testing
+*_report.html
+*.kmz
+*_litchi.csv
